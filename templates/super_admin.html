@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Super Admin — SMS</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* Extra styles for super admin enhancements */
+.sc.clickable{cursor:pointer;position:relative;overflow:hidden}
+.sc.clickable::after{content:'→';position:absolute;bottom:10px;right:14px;font-size:14px;color:var(--acc);opacity:0;transition:opacity .2s}
+.sc.clickable:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:0 4px 20px rgba(79,142,247,.15)}
+.sc.clickable:hover::after{opacity:1}
+.sc.clickable{transition:all .2s}
+.mini-tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;margin:2px}
+.perm-card{background:rgba(15,35,71,0.7);border:1px solid rgba(26,115,232,0.25);border-radius:10px;padding:16px 18px;margin-bottom:12px}
+.perm-card h4{font-size:13px;font-weight:700;color:var(--dt);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.perm-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;color:var(--mut);border-bottom:1px solid rgba(26,115,232,0.12)}
+.perm-item:last-child{border-bottom:none}
+.perm-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-ok{background:var(--ok)}.dot-no{background:var(--danger)}.dot-lim{background:var(--warn)}
+.ctrl-card{background:rgba(15,35,71,0.7);border:1px solid rgba(26,115,232,0.25);border-radius:10px;padding:16px 18px;margin-bottom:12px}
+.ctrl-card h4{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#4fc3f7;margin-bottom:10px}
+.ctrl-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(26,115,232,0.12);font-size:13px}
+.ctrl-row:last-child{border-bottom:none}
+.ctrl-key{color:var(--mut)}
+.ctrl-val{color:var(--dt);font-weight:600;font-family:var(--mono);font-size:12px}
+.ctrl-badge{display:inline-block;padding:2px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.cb-ok{background:rgba(38,194,129,0.2);color:#80cbc4}
+.cb-warn{background:rgba(255,167,38,0.2);color:#ffd54f}
+.cb-info{background:rgba(26,115,232,0.2);color:#82b1ff}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#0f2347;border:1px solid rgba(26,115,232,0.45);border-radius:14px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;color:var(--dt);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{cursor:pointer;color:var(--mut);font-size:18px;padding:4px 8px;border-radius:6px}
+.modal-close:hover{color:var(--danger);background:rgba(239,83,80,0.12)}
+.analytics-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.atab{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
+  background:rgba(15,35,71,0.7);border:1px solid rgba(26,115,232,0.25);color:var(--mut);transition:all .15s}
+.atab.active{background:rgba(26,115,232,0.2);border-color:#4fc3f7;color:#4fc3f7}
+.asec{display:none}.asec.active{display:block;animation:fu .2s ease}
+.chart-full{background:rgba(15,35,71,0.7);border:1px solid rgba(26,115,232,0.25);border-radius:12px;padding:18px;margin-bottom:16px}
+.chart-full h4{font-size:13px;font-weight:600;color:var(--mut);margin-bottom:12px}
+.chart-full canvas{max-height:240px}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+@media(max-width:600px){.chart-row{grid-template-columns:1fr}}
+.bar-item{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(26,115,232,0.12)}
+.bar-item:last-child{border-bottom:none}
+.bar-label{color:var(--mut);font-size:12px;min-width:100px}
+.bar-track{flex:1;height:8px;background:rgba(26,115,232,0.15);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:#1a73e8;transition:width .5s}
+.bar-count{color:var(--dt);font-size:12px;font-weight:700;min-width:30px;text-align:right}
+</style>
+</head>
+<body class="dash">
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-head"><div class="sb-tag">SMS</div><div class="sb-name">Super <span>Admin</span></div></div>
+    <div class="sb-user">
+      <div class="av av-sa">S</div>
+      <div><div class="sb-un" id="sb-uname">Super Admin</div><div class="sb-ur r-sa">Super Administrator</div></div>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-sec">Dashboard</div>
+      <a class="nav-item active" data-s="overview"><span class="ni">📊</span>Overview</a>
+      <div class="nav-sec">Management</div>
+      <a class="nav-item" data-s="users"><span class="ni">👥</span>All Users</a>
+      <a class="nav-item" data-s="roles"><span class="ni">🔑</span>Roles & Permissions</a>
+      <div class="nav-sec">Monitoring</div>
+      <a class="nav-item" data-s="analytics"><span class="ni">📈</span>Analytics</a>
+      <a class="nav-item" data-s="logs"><span class="ni">📋</span>Audit Logs</a>
+      <a class="nav-item" data-s="security"><span class="ni">🚨</span>Security Alerts</a>
+      <div class="nav-sec">System</div>
+      <a class="nav-item" data-s="controls"><span class="ni">⚙️</span>Controls</a>
+    </nav>
+    <div class="sb-foot"><button class="logout" id="logout-btn">🚪 Sign Out</button></div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ══ OVERVIEW ══ -->
+    <div id="s-overview" class="sec active">
+      <div class="pg-hd"><div><h1>System Overview</h1><p>Click any card to drill down into details</p></div></div>
+      <div class="sg">
+        <div class="sc clickable" onclick="drillDown('total_users')"><span class="si">👥</span><div class="sl">Total Users</div><div class="sv" id="st-total_users">—</div><div style="font-size:11px;color:var(--acc);margin-top:6px">View all →</div></div>
+        <div class="sc clickable" onclick="drillDown('active_users')"><span class="si">✅</span><div class="sl">Active Users</div><div class="sv" id="st-active_users">—</div><div style="font-size:11px;color:var(--ok);margin-top:6px">View active →</div></div>
+        <div class="sc clickable" onclick="drillDown('blocked_users')"><span class="si">🚫</span><div class="sl">Blocked Users</div><div class="sv" id="st-blocked_users">—</div><div style="font-size:11px;color:var(--danger);margin-top:6px">View blocked →</div></div>
+        <div class="sc clickable" onclick="drillDown('success_logins')"><span class="si">🔓</span><div class="sl">Success Logins</div><div class="sv" id="st-success_logins">—</div><div style="font-size:11px;color:var(--ok);margin-top:6px">View logs →</div></div>
+        <div class="sc clickable" onclick="drillDown('failed_logins')"><span class="si">❌</span><div class="sl">Failed Logins</div><div class="sv" id="st-failed_logins">—</div><div style="font-size:11px;color:var(--danger);margin-top:6px">View logs →</div></div>
+        <div class="sc clickable" onclick="drillDown('high_risk')"><span class="si">⚠️</span><div class="sl">High Risk Events</div><div class="sv" id="st-high_risk">—</div><div style="font-size:11px;color:var(--warn);margin-top:6px">View alerts →</div></div>
+        <div class="sc clickable" onclick="drillDown('admins')"><span class="si">🛡</span><div class="sl">Admins</div><div class="sv" id="st-admin_count">—</div><div style="font-size:11px;color:var(--acc);margin-top:6px">View admins →</div></div>
+        <div class="sc clickable" onclick="drillDown('users')"><span class="si">👤</span><div class="sl">Users</div><div class="sv" id="st-user_count">—</div><div style="font-size:11px;color:var(--ok);margin-top:6px">View users →</div></div>
+        <div class="sc clickable" onclick="drillDown('events')"><span class="si">📝</span><div class="sl">Total Events</div><div class="sv" id="st-total_events">—</div><div style="font-size:11px;color:var(--mut);margin-top:6px">View all logs →</div></div>
+      </div>
+    </div>
+
+    <!-- ══ USERS ══ -->
+    <div id="s-users" class="sec">
+      <div class="pg-hd"><div><h1>All Users</h1><p>Manage roles, block/unblock, delete</p></div></div>
+      <div class="fb">
+        <input type="text" id="user-search" placeholder="🔍 Search email or name…">
+        <select id="role-filter">
+          <option value="">All Roles</option>
+          <option value="super_admin">Super Admin</option>
+          <option value="admin">Admin</option>
+          <option value="user">User</option>
+        </select>
+        <select id="status-filter">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="blocked">Blocked</option>
+        </select>
+      </div>
+      <div class="tw">
+        <div class="th"><h3>All Registered Users</h3><span id="user-count-label" style="font-size:12px;color:var(--mut)"></span></div>
+        <table><thead><tr><th>#</th><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody id="users-tb"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ══ ROLES ══ -->
+    <div id="s-roles" class="sec">
+      <div class="pg-hd"><div><h1>Roles & Permissions</h1><p>Detailed access control for each role</p></div></div>
+
+      <div class="perm-card">
+        <h4>🔴 Super Admin <span class="mini-tag" style="background:rgba(245,158,11,.15);color:#f59e0b">God Mode</span></h4>
+        <div class="perm-item"><div class="dot dot-ok"></div>Full access to all users, logs, analytics, security</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>Change any user's role (Admin / User)</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>Block, unblock, delete any user</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>View all audit logs and security alerts</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>View all analytics and data visualizations</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>Access system controls panel</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>Protected — cannot be blocked, deleted, or role-changed by anyone</div>
+      </div>
+
+      <div class="perm-card">
+        <h4>🔵 Admin <span class="mini-tag" style="background:rgba(79,142,247,.15);color:var(--acc)">Moderator</span></h4>
+        <div class="perm-item"><div class="dot dot-ok"></div>View own profile and login history</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>View all system audit logs (read-only)</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>View login analytics and charts</div>
+        <div class="perm-item"><div class="dot dot-lim"></div>Block or unblock non-super-admin users only</div>
+        <div class="perm-item"><div class="dot dot-no"></div>Cannot change any user's role</div>
+        <div class="perm-item"><div class="dot dot-no"></div>Cannot delete users</div>
+        <div class="perm-item"><div class="dot dot-no"></div>Cannot access security alerts or controls panel</div>
+      </div>
+
+      <div class="perm-card">
+        <h4>🟢 User <span class="mini-tag" style="background:rgba(16,185,129,.12);color:var(--ok)">Standard</span></h4>
+        <div class="perm-item"><div class="dot dot-ok"></div>View own profile (name, email, role, status)</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>View own login activity and risk scores</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>View own security info (last device, location)</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>Edit own display name</div>
+        <div class="perm-item"><div class="dot dot-no"></div>Cannot see any other user's data</div>
+        <div class="perm-item"><div class="dot dot-no"></div>No access to system logs, analytics, or admin features</div>
+      </div>
+
+      <div class="perm-card">
+        <h4>🤖 AI Risk Engine</h4>
+        <div class="perm-item"><div class="dot dot-ok"></div>Evaluates every login using model.pkl</div>
+        <div class="perm-item"><div class="dot dot-ok"></div>Features: device type, location, loginCount, hour, failedAttempts</div>
+        <div class="perm-item"><div class="dot dot-lim"></div>Prediction 0 = Safe → Login directly, no OTP</div>
+        <div class="perm-item"><div class="dot dot-warn" style="background:var(--danger)"></div>Prediction 1 = High Risk → OTP email sent (60s validity)</div>
+        <div class="perm-item"><div class="dot dot-lim"></div>Heuristic fallback if model.pkl not found</div>
+      </div>
+    </div>
+
+    <!-- ══ ANALYTICS ══ -->
+    <div id="s-analytics" class="sec">
+      <div class="pg-hd"><div><h1>Analytics</h1><p>Comprehensive data visualization across all dimensions</p></div></div>
+
+      <div class="analytics-tabs">
+        <div class="atab active" data-at="login">📈 Login Analytics</div>
+        <div class="atab" data-at="user">👥 User Analytics</div>
+        <div class="atab" data-at="risk">🛡 Security Analytics</div>
+        <div class="atab" data-at="device">📱 Access Analytics</div>
+        <div class="atab" data-at="time">🕐 Time Analytics</div>
+      </div>
+
+      <!-- Login Analytics -->
+      <div class="asec active" id="at-login">
+        <div class="chart-full"><h4>Login Trend — Last 7 Days</h4><canvas id="chart-trend7"></canvas></div>
+        <div class="chart-row">
+          <div class="chart-full"><h4>Login Status Breakdown</h4><canvas id="chart-status"></canvas></div>
+          <div class="chart-full"><h4>30-Day Activity</h4><canvas id="chart-trend30"></canvas></div>
+        </div>
+      </div>
+
+      <!-- User Analytics -->
+      <div class="asec" id="at-user">
+        <div class="chart-row">
+          <div class="chart-full"><h4>Role Distribution</h4><canvas id="chart-roles"></canvas></div>
+          <div class="chart-full"><h4>User Status (Active vs Blocked)</h4><canvas id="chart-ustatus"></canvas></div>
+        </div>
+        <div class="chart-full"><h4>Top Locations by Login Count</h4><div id="loc-bars"></div></div>
+      </div>
+
+      <!-- Security Analytics -->
+      <div class="asec" id="at-risk">
+        <div class="chart-row">
+          <div class="chart-full"><h4>Risk Distribution (Safe vs High Risk)</h4><canvas id="chart-risk"></canvas></div>
+          <div class="chart-full"><h4>Action Type Breakdown</h4><canvas id="chart-actions"></canvas></div>
+        </div>
+        <div class="chart-full"><h4>High Risk Events Over Time</h4><canvas id="chart-highrisk"></canvas></div>
+      </div>
+
+      <!-- Device/Access Analytics -->
+      <div class="asec" id="at-device">
+        <div class="chart-row">
+          <div class="chart-full"><h4>Device Type Distribution</h4><canvas id="chart-devices"></canvas></div>
+          <div class="chart-full"><h4>Login Source by Location</h4><div id="device-loc-bars"></div></div>
+        </div>
+      </div>
+
+      <!-- Time Analytics -->
+      <div class="asec" id="at-time">
+        <div class="chart-full"><h4>Hourly Login Activity (0–23h)</h4><canvas id="chart-hourly"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ══ LOGS ══ -->
+    <div id="s-logs" class="sec">
+      <div class="pg-hd"><div><h1>Audit Logs</h1><p>Complete event history</p></div></div>
+      <div class="fb">
+        <input type="text" id="log-search" placeholder="🔍 Filter by email or action…">
+        <select id="log-risk-filter">
+          <option value="">All Risk</option>
+          <option value="high">High Risk</option>
+          <option value="low">Safe</option>
+        </select>
+        <select id="log-status-filter">
+          <option value="">All Status</option>
+          <option value="success">Success</option>
+          <option value="failed">Failed</option>
+          <option value="pending">Pending</option>
+        </select>
+      </div>
+      <div class="tw">
+        <div class="th"><h3>All Events</h3><span id="log-count-label" style="font-size:12px;color:var(--mut)"></span></div>
+        <table><thead><tr><th>#</th><th>Email</th><th>Action</th><th>Risk</th><th>Status</th><th>Device</th><th>Location</th><th>Timestamp</th></tr></thead>
+        <tbody id="logs-tb"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ══ SECURITY ══ -->
+    <div id="s-security" class="sec">
+      <div class="pg-hd">
+        <div><h1>Security Alerts</h1><p>High-risk login events — requires immediate attention</p></div>
+        <div class="sc" style="padding:12px 16px;min-width:120px"><div class="sl">⚠️ Total Alerts</div><div class="sv" id="alert-count">—</div></div>
+      </div>
+      <div class="tw">
+        <div class="th"><h3>High Risk Events</h3></div>
+        <table><thead><tr><th>Email</th><th>Action</th><th>Device</th><th>Location</th><th>Timestamp</th></tr></thead>
+        <tbody id="sec-tb"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ══ CONTROLS ══ -->
+    <div id="s-controls" class="sec">
+      <div class="pg-hd"><div><h1>System Controls</h1><p>Live system configuration, health and architecture</p></div></div>
+
+      <div class="ctrl-card">
+        <h4>🤖 AI Risk Model</h4>
+        <div class="ctrl-row"><span class="ctrl-key">Model File</span><span class="ctrl-val">model.pkl</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Algorithm</span><span class="ctrl-val">Random Forest / Custom ML</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Input Features</span><span class="ctrl-val">device, location, loginCount, hour, failedAttempts</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Output</span><span class="ctrl-val">0 = Safe &nbsp;|&nbsp; 1 = High Risk</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Fallback</span><span class="ctrl-val">Heuristic (hour + location + failedAttempts)</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Model Status</span><span id="model-status"><span class="ctrl-badge cb-info">Checking…</span></span></div>
+      </div>
+
+      <div class="ctrl-card">
+        <h4>🔐 Authentication</h4>
+        <div class="ctrl-row"><span class="ctrl-key">Method</span><span class="ctrl-val">JWT (JSON Web Token)</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Token Expiry</span><span class="ctrl-val">8 hours</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Algorithm</span><span class="ctrl-val">HS256</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Password Hash</span><span class="ctrl-val">SHA-256</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">OTP Validity</span><span class="ctrl-val">60 seconds</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">OTP Delivery</span><span class="ctrl-val">Gmail SMTP (TLS)</span></div>
+      </div>
+
+      <div class="ctrl-card">
+        <h4>🗄️ Database</h4>
+        <div class="ctrl-row"><span class="ctrl-key">Engine</span><span class="ctrl-val">SQLite</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Local Path</span><span class="ctrl-val">sms.db</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Render Path</span><span class="ctrl-val">/tmp/sms.db</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Switch to PG</span><span class="ctrl-val">Set DB_PATH to PostgreSQL in app.py</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Tables</span><span class="ctrl-val">users, logs</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Live Stats</span><span id="ctrl-db-stats" class="ctrl-val">—</span></div>
+      </div>
+
+      <div class="ctrl-card">
+        <h4>🌐 Location Detection</h4>
+        <div class="ctrl-row"><span class="ctrl-key">API 1</span><span class="ctrl-val">ipify.org → ipapi.co</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">API 2 (fallback)</span><span class="ctrl-val">ipwho.is</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Safe Zone</span><span class="ctrl-val">India / Unknown → risk factor: 0</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Foreign Zone</span><span class="ctrl-val">Any other country → risk factor: 1</span></div>
+      </div>
+
+      <div class="ctrl-card">
+        <h4>👑 Super Admin</h4>
+        <div class="ctrl-row"><span class="ctrl-key">Email</span><span class="ctrl-val" id="ctrl-sa-email">—</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">Protected</span><span class="ctrl-val"><span class="ctrl-badge cb-ok">Always ✓</span></span></div>
+        <div class="ctrl-row"><span class="ctrl-key">To Change</span><span class="ctrl-val">Edit SUPER_ADMIN_EMAIL in app.py → delete sms.db → restart</span></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+<div id="toast"></div>
+
+<!-- Drill-down modal -->
+<div class="modal-bg" id="drill-modal">
+  <div class="modal">
+    <h3><span id="modal-title">Details</span><span class="modal-close" onclick="document.getElementById('drill-modal').classList.remove('open')">✕</span></h3>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script type="module" src="/static/js/super_admin.js"></script>
+</body></html>

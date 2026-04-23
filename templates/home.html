@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>SMS</title>
+<link rel="stylesheet" href="/static/css/style.css"></head>
+<body class="auth">
+<div class="box"><h2>Redirecting...</h2></div>
+<script type="module">
+import { getTok, getUsr } from "/static/js/utils.js";
+const u=getUsr(),t=getTok();
+if(!u||!t){window.location.href="/";}
+else{const m={super_admin:"/super-admin",admin:"/admin",user:"/user"};window.location.href=m[u.role]||"/";}
+</script></body></html>

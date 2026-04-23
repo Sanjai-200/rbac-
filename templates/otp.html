@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OTP Verification — SMS</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  .otp-input-box {
+    width:100%;padding:14px 16px;margin:12px 0 6px;
+    border:2px solid #7b5ea7;border-radius:12px;
+    font-size:2rem;font-weight:700;text-align:center;
+    letter-spacing:14px;font-family:monospace;
+    background:#fff;color:#1a1a2e;outline:none;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .otp-input-box:focus{border-color:#4a90d9;box-shadow:0 0 0 3px rgba(74,144,217,.15)}
+  .btn-verify{
+    width:100%;padding:13px;margin-top:12px;border:none;border-radius:10px;
+    font-size:1rem;font-weight:700;cursor:pointer;
+    background:linear-gradient(90deg,#4a90d9,#7b5ea7);color:#fff;
+    transition:transform .15s,box-shadow .15s;
+  }
+  .btn-verify:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(123,94,167,.4)}
+  .btn-verify:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+  .btn-resend{
+    width:100%;padding:11px;margin-top:8px;border:1.5px solid #d1d5db;
+    border-radius:10px;font-size:.95rem;font-weight:600;cursor:pointer;
+    background:transparent;color:#7b5ea7;font-family:'Segoe UI',sans-serif;
+    transition:background .15s,border-color .15s;
+  }
+  .btn-resend:hover{background:#f3f0f8;border-color:#7b5ea7}
+  .btn-resend:disabled{opacity:.5;cursor:not-allowed}
+  .otp-timer{text-align:center;font-size:.88rem;color:#6b7280;margin-top:4px}
+  .otp-timer span{color:#b45309;font-weight:700;font-family:monospace}
+  #otp-msg{margin-top:12px;font-size:.9rem;font-weight:600;min-height:20px;
+    color:#dc2626;text-align:center;line-height:1.4}
+  #otp-msg.ok{color:#16a34a}
+</style>
+</head>
+<body class="auth">
+<div class="box">
+  <h2>OTP Verification</h2>
+
+  <div class="risk-box">
+    ⚠️ High risk login detected.<br>
+    OTP sent to: <strong id="otp-email" style="color:#7b5ea7"></strong>
+  </div>
+
+  <input
+    type="tel"
+    id="otpInput"
+    class="otp-input-box"
+    placeholder="——————"
+    maxlength="6"
+    inputmode="numeric"
+    autocomplete="one-time-code"
+  >
+
+  <div class="otp-timer">Expires in <span id="timer">01:00</span></div>
+
+  <button id="verifyBtn" class="btn-verify">Verify OTP</button>
+  <button id="resendBtn" class="btn-resend">🔄 Resend OTP</button>
+
+  <div id="otp-msg"></div>
+
+  <p style="margin-top:14px;font-size:.88rem;color:#6b7280;text-align:center">
+    <a href="/" style="color:#7b5ea7;font-weight:700;text-decoration:none">← Back to Login</a>
+  </p>
+</div>
+
+<script>
+// Inline script — no module imports to avoid any loading issues
+(function(){
+  const raw = sessionStorage.getItem("otp_p");
+  if (!raw) { window.location.href="/"; return; }
+  const pend = JSON.parse(raw);
+
+  document.getElementById("otp-email").textContent = pend.email || "";
+
+  const inp    = document.getElementById("otpInput");
+  const verBtn = document.getElementById("verifyBtn");
+  const resBtn = document.getElementById("resendBtn");
+  const msgEl  = document.getElementById("otp-msg");
+  const timerEl= document.getElementById("timer");
+
+  // Focus input immediately
+  inp.focus();
+
+  // Only allow digits
+  inp.addEventListener("input", function(){
+    this.value = this.value.replace(/\D/g,"").slice(0,6);
+  });
+
+  // 60s timer
+  let cd = 60, iv;
+  function startTimer(){
+    clearInterval(iv);
+    iv = setInterval(function(){
+      cd--;
+      var m=String(Math.floor(cd/60)).padStart(2,"0");
+      var s=String(cd%60).padStart(2,"0");
+      timerEl.textContent = m+":"+s;
+      if(cd<=0){
+        clearInterval(iv);
+        msgEl.textContent="OTP expired. Click Resend OTP.";
+        msgEl.className="";
+        verBtn.disabled=true;
+      }
+    },1000);
+  }
+  startTimer();
+
+  // Verify OTP
+  verBtn.addEventListener("click", async function(){
+    var entered = inp.value.trim();
+    if(!entered || entered.length < 6){
+      msgEl.textContent="Please enter the 6-digit OTP.";
+      msgEl.className=""; return;
+    }
+    verBtn.disabled=true; verBtn.textContent="Verifying...";
+    msgEl.textContent=""; msgEl.className="";
+    try{
+      var r = await fetch("/api/verify-otp",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({user_id:pend.user_id, otp:entered})
+      });
+      var d = await r.json();
+      if(!r.ok){
+        msgEl.textContent = d.error || "Wrong OTP ❌";
+        msgEl.className="";
+        verBtn.disabled=false; verBtn.textContent="Verify OTP";
+        return;
+      }
+      msgEl.textContent="OTP Verified ✅"; msgEl.className="ok";
+      clearInterval(iv);
+
+      // Cleanup session
+      var email = pend.email;
+      var lc = parseInt(localStorage.getItem(email+"_lc")||"0")+1;
+      localStorage.setItem(email+"_lc", lc);
+      sessionStorage.setItem(email+"_fa","0");
+      localStorage.removeItem(email+"_pfa");
+      sessionStorage.removeItem("otp_p");
+      sessionStorage.removeItem("_loc_cache");
+      ["pd","pl","pt","plc","pfa2"].forEach(function(k){sessionStorage.removeItem(k);});
+
+      // Save JWT
+      localStorage.setItem("sms_token", d.token);
+      localStorage.setItem("sms_user", JSON.stringify({role:d.role,email:d.email,name:d.name}));
+
+      var map={super_admin:"/super-admin",admin:"/admin",user:"/user"};
+      setTimeout(function(){window.location.href=map[d.role]||"/user";},1000);
+    }catch(e){
+      msgEl.textContent="Error: "+e.message;
+      verBtn.disabled=false; verBtn.textContent="Verify OTP";
+    }
+  });
+
+  // Resend OTP
+  resBtn.addEventListener("click", async function(){
+    var email=pend.email;
+    if(!email){
+      msgEl.textContent="Session lost. Please login again.";
+      setTimeout(function(){window.location.href="/";},2000); return;
+    }
+    resBtn.disabled=true; resBtn.textContent="Sending...";
+    msgEl.textContent=""; msgEl.className="";
+    try{
+      var r = await fetch("/api/resend-otp",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({user_id:pend.user_id, email:email})
+      });
+      var d = await r.json();
+      if(r.ok){
+        msgEl.textContent="New OTP sent to "+email+" 📩"; msgEl.className="ok";
+        cd=60; startTimer(); verBtn.disabled=false; verBtn.textContent="Verify OTP";
+        inp.value=""; inp.focus();
+      } else {
+        msgEl.textContent=d.error||"Failed to resend. Try again.";
+      }
+    }catch(e){
+      msgEl.textContent="Failed to resend. Try again.";
+    }
+    resBtn.disabled=false; resBtn.textContent="🔄 Resend OTP";
+  });
+})();
+</script>
+</body>
+</html>
